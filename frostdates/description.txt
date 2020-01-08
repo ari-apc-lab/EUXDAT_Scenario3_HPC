@@ -1,0 +1,22 @@
+Frost dates 
+- Calculation of frost dates (first/last), frost free periods, number of frost days
+- from Copernicus climate data (necdf year files) to geojson, Shapefile
+- algorithm with description in jupyter file frostdates.ipynb (red title - the most important part with settings of parameters)
+- sample data in folder data
+- export files in folder export
+
+Main input parameters:
+necdf files with hourly temperatures (name of each file = year)
+probability - probability (percent) of frost date (integer 10-90)
+dayinrow  - how many frost days in row is last/first frost date (usually 1, but we can calculate for example last two frost days in row)
+starthourday - integer 0-23, we can select only sunrise hours
+endhourday -  integer 0-23, we can select only sunrise hours
+frost degree (0 or different such as -2)
+start year
+end year
+
+Output:
+Geojson and Shapefile (points) - each point has got attributes: first/last frost date, frost-free period with corresponding probability, frost dates, period for each year and also number of frost days in each year or averange of number of frost days
+
+
+
