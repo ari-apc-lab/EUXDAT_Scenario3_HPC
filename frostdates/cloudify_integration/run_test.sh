@@ -1,18 +1,25 @@
 export dockerregistry="registry.test.euxdat.eu/euxdat"
-export service="xalkidiki_scenario_v3"
-export input_folder=$(pwd)/input_test
-export output_folder=$(pwd)/output
-docker pull $dockerregistry/$service:latest
+export service="agroclimatic_zone_frostdates"
+export input_folder=$(pwd)/data
+export output_folder=$(pwd)/output_test
+#docker pull $dockerregistry/$service:latest
 docker run -it \
-  --entrypoint=/bin/bash \
-  -v "$input_folder:/var/data" \
-  -v "$output_folder:/var/output" \
-  -v "/data/euxdat-mapserver/maps:/maps" \
+  -v "$input_folder:/frostdates/data" \
+  -v "$output_folder:/frostdates/export" \
   -e INPUT_LOGLEVEL=DEBUG \
-  -e INPUT_FIELD_PK=10 \
-  -e INPUT_TIMESTAMP='2018-05-01T09:06:01.024Z' \
-  -e INPUT_CONNECTION_STRING="dbname=geodbbackenddevel user=geodbdevel password=Euxdat12345 host=10.97.68.140 port=5432" \
-  -e OUTPUT_RASTERFILE=zob.tif \
-  -e PROCESS_ID=test_27051317 \
+  -e DAY_IN_ROW=1 \
+  -e START_HOUR_DAY=0 \
+  -e END_HOUR_DAY=23 \
+  -e FROST_DEGREE=0 \
+  -e START_YEAR=2016 \
+  -e END_YEAR=2018 \
+  -e PROBABILITY=10 \
+  -e EXPORT_FOLDER="/frostdates/export" \
+  -e DATA_FOLDER="/frostdates/data" \
+  -e START_LON=0 \
+  -e START_LAT=0 \
+  -e END_LON=2 \
+  -e END_LAT=2 \
+  -e PROCESS_ID="test_frostdate4" \
   $service 
 #docker rmi -f $service
