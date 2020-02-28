@@ -16,10 +16,11 @@ docker run -it \
   -e PROBABILITY=10 \
   -e EXPORT_FOLDER="/frostdates/export" \
   -e DATA_FOLDER="/frostdates/data" \
-  -e START_LON=0 \
-  -e START_LAT=0 \
-  -e END_LON=2 \
-  -e END_LAT=2 \
-  -e PROCESS_ID="test_frostdate4" \
-  $service 
+  -e START_LON=12.555 \
+  -e START_LAT=49.67 \
+  -e END_LON=12.61\
+  -e END_LAT=49.801 \
+  -e PROCESS_ID="test_frostdatelatlon"\
+  $dockerregistry/$service
+
 #docker rmi -f $service
