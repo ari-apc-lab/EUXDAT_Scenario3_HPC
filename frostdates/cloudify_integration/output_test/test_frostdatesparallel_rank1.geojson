@@ -1,0 +1,53 @@
+{
+"type": "FeatureCollection",
+"features": [
+{
+"type": "Feature",
+"geometry": {
+"type": "Point",
+"coordinates": [12.0,48.099998474121094]
+},
+"properties": {
+"LastD2016": "2016-04-29",
+"FirstD2016": "2016-10-22",
+"Period2016": "176",
+"FrDays2016": "104",
+"LastD2017": "2017-06-30",
+"FirstD2017": "2017-07-03",
+"Period2017": "3",
+"FrDays2017": "110",
+"LastD2018": "2018-04-02",
+"FirstD2018": "2018-11-18",
+"Period2018": "230",
+"FrDays2018": "102",
+"LastD10": "2030-06-27",
+"FirstD10": "2030-07-10",
+"Period10": "13",
+"AvgFrDays": "105"
+}
+},
+{
+"type": "Feature",
+"geometry": {
+"type": "Point",
+"coordinates": [12.100000381469727,48.099998474121094]
+},
+"properties": {
+"LastD2016": "2016-04-29",
+"FirstD2016": "2016-10-22",
+"Period2016": "176",
+"FrDays2016": "102",
+"LastD2017": "2017-06-30",
+"FirstD2017": "2017-07-03",
+"Period2017": "3",
+"FrDays2017": "109",
+"LastD2018": "2018-04-02",
+"FirstD2018": "2018-11-18",
+"Period2018": "230",
+"FrDays2018": "102",
+"LastD10": "2030-06-27",
+"FirstD10": "2030-07-09",
+"Period10": "12",
+"AvgFrDays": "104"
+}
+},

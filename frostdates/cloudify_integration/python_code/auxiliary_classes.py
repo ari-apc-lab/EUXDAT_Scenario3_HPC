@@ -1,7 +1,7 @@
 import numpy as np
 import datetime
 import datetime
-from osgeo import gdal, gdalnumeric, ogr, osr
+#from osgeo import gdal, gdalnumeric, ogr, osr
 from datetime import timedelta
 import numpy as np
 from PIL import ImageDraw
