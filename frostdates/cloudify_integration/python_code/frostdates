@@ -2,7 +2,7 @@
 
 import netCDF4 # python API to work with netcdf (.nc) files
 import os
-import logging
+#import logging
 import datetime
 #from osgeo import gdal, ogr, osr
 import numpy as np # library to work with matrixes and computations in general
@@ -13,7 +13,7 @@ from auxiliary_classes import convert_time,convert_time_reverse,kelvin_to_celsiu
 import json
 import geojson, subprocess
 
-from frostdates_params import DAY_IN_ROW, START_HOUR_DAY, END_HOUR_DAY, FROST_DEGREE, START_YEAR, END_YEAR, PROBABILITY, EXPORT_FOLDER, DATA_FOLDER, START_LON, START_LAT, END_LON, END_LAT, setup_logger, process_id
+from frostdates_params import DAY_IN_ROW, START_HOUR_DAY, END_HOUR_DAY, FROST_DEGREE, START_YEAR, END_YEAR, PROBABILITY, EXPORT_FOLDER, DATA_FOLDER, START_LON, START_LAT, END_LON, END_LAT,  process_id #setup_logger,
 
 from mpi4py import MPI
 import itertools
@@ -26,7 +26,7 @@ def print_geojson(tname, tvalue, fname, startdoc, position,endloop): #for printi
     print(fname)
     print(comm.rank)
     print(size)
-#    logger.info("%s fname", fname)
+#    logger.info("%s fname", fname) #This was already commented out
     #fname = fname +".geojson"
     pmode="a"
     if startdoc==1:
@@ -293,9 +293,9 @@ def frostdatesyearly(latorder,lonorder,startyear,endyear,frostdegree,dayinrow,st
 
 # Find frost dates: function for selected latitudes, longitudes
 def frostdatesplaces(startlat, startlon, endlat, endlon, startyear,endyear,frostdegree,dayinrow,starthourday,endhourday,exportfolder,datafolder,fnamefrostdates1,probability):
-        setup_logger('debug', os.path.join(EXPORT_FOLDER,'debug.log'))
-        logger = logging.getLogger('debug')
-        logger.info("Starting frostdates algorithm...")
+        #setup_logger('debug', os.path.join(EXPORT_FOLDER,'debug.log'))
+        #logger = logging.getLogger('debug')
+        #logger.info("Starting frostdates algorithm...")
     
         fnamefrostdates = exportfolder + "/" +fnamefrostdates1
         print_geojson("", "", fnamefrostdates, 1, 0,0)
@@ -304,9 +304,9 @@ def frostdatesplaces(startlat, startlon, endlat, endlon, startyear,endyear,frost
             for lonorder in range(startlon, endlon+1, 1):
                 if latorder==endlat and lonorder==endlon:
                     endloop=1
-                logger.debug("Computing frostdates for lat_order: %s and lon_order: %s", latorder, lonorder)
+                #logger.debug("Computing frostdates for lat_order: %s and lon_order: %s", latorder, lonorder)
                 frostdatesyearly(latorder,lonorder,startyear,endyear,frostdegree,dayinrow,starthourday,endhourday,fnamefrostdates,endloop,datafolder,probability)
-        logger.info("Scenario succeeded!")
+        #logger.info("Scenario succeeded!")
 
 
 
@@ -331,9 +331,9 @@ def getincludedindices(start_value,end_value,array):
 
 # Parallel version of Find frost dates lat lon function. Work for differemt latitude and longitude pair is spread over different processors with MPI.
 def frostdatesplaceslatlonparallel(startlat, startlon, endlat, endlon, startyear,endyear,frostdegree,dayinrow,starthourday,endhourday,exportfolder,datafolder,fnamefrostdates1,probability):
-    setup_logger('debug', os.path.join(EXPORT_FOLDER,'debug.log'))
-    logger = logging.getLogger('debug')
-    logger.info("Starting frostdates algorithm...")
+    #setup_logger('debug', os.path.join(EXPORT_FOLDER,'debug.log'))
+    #logger = logging.getLogger('debug')
+    #logger.info("Starting frostdates algorithm...")
     
     latlist = getlatlist(startyear,datafolder)
     lonlist = getlonlist(startyear,datafolder)
@@ -369,15 +369,15 @@ def frostdatesplaceslatlonparallel(startlat, startlon, endlat, endlon, startyear
     for i in range(start_pair,stop_pair+1,1):                    
         if i == (stop_pair+1):
             endloop=1
-        logger.info("Rank %d is computing frostdates for lat_order: %s and lon_order: %s",comm.rank, masterlist[i][0], masterlist[i][1])
+       # logger.info("Rank %d is computing frostdates for lat_order: %s and lon_order: %s",comm.rank, masterlist[i][0], masterlist[i][1])
        #logger.info("rank %d working on pair %d with lonorder %d and latorder %d" % (comm.rank, i, masterlist[i][0], masterlist[i][1]))            
         frostdatesyearly(masterlist[i][0],masterlist[i][1],startyear,endyear,frostdegree,dayinrow,starthourday,endhourday,fnamefrostdates,endloop,datafolder,probability)
-    logger.info("Scenario succeeded!")
+   # logger.info("Scenario succeeded!")
 
 def frostdatesplaceslatlon(startlat, startlon, endlat, endlon, startyear,endyear,frostdegree,dayinrow,starthourday,endhourday,exportfolder,datafolder,fnamefrostdates1,probability):
-    setup_logger('debug', os.path.join(EXPORT_FOLDER,'debug.log'))
-    logger = logging.getLogger('debug')
-    logger.info("Starting frostdates algorithm...")
+  #  setup_logger('debug', os.path.join(EXPORT_FOLDER,'debug.log'))
+  #  logger = logging.getLogger('debug')
+  #  logger.info("Starting frostdates algorithm...")
     
     latlist = getlatlist(startyear,datafolder)
     lonlist = getlonlist(startyear,datafolder)
@@ -394,9 +394,9 @@ def frostdatesplaceslatlon(startlat, startlon, endlat, endlon, startyear,endyear
         for lonorder in lonorders:
             if latorder==latorders[-1] and lonorder==lonorders[-1]:
                 endloop = 1
-            logger.info("Computing frostdates for lat_order: %s and lon_order: %s", latorder, lonorder)
+            #logger.info("Computing frostdates for lat_order: %s and lon_order: %s", latorder, lonorder)
             frostdatesyearly(latorder,lonorder,startyear,endyear,frostdegree,dayinrow,starthourday,endhourday,fnamefrostdates,endloop,datafolder,probability)
-    logger.info("Scenario succeeded!")
+   # logger.info("Scenario succeeded!")
 
                 
 if __name__ == "__main__":
@@ -411,13 +411,13 @@ if __name__ == "__main__":
   START_HOUR_DAY = int(START_HOUR_DAY)
   END_HOUR_DAY = int(END_HOUR_DAY)
   PROBABILITY = int(PROBABILITY)
-  try:
-    frostdatesplaceslatlonparallel(START_LAT, START_LON, END_LAT, END_LON, START_YEAR ,END_YEAR ,FROST_DEGREE ,DAY_IN_ROW ,START_HOUR_DAY ,END_HOUR_DAY ,EXPORT_FOLDER ,DATA_FOLDER ,process_id ,PROBABILITY)
+  #try:
+  frostdatesplaceslatlonparallel(START_LAT, START_LON, END_LAT, END_LON, START_YEAR ,END_YEAR ,FROST_DEGREE ,DAY_IN_ROW ,START_HOUR_DAY ,END_HOUR_DAY ,EXPORT_FOLDER ,DATA_FOLDER ,process_id ,PROBABILITY)
     #frostdatesplaceslatlon(START_LAT, START_LON, END_LAT, END_LON, START_YEAR ,END_YEAR ,FROST_DEGREE ,DAY_IN_ROW ,START_HOUR_DAY ,END_HOUR_DAY ,EXPORT_FOLDER ,DATA_FOLDER ,process_id ,PROBABILITY)
-  except Exception as err:
-    setup_logger('error_logger', os.path.join(EXPORT_FOLDER,'error_traceback.log'))
-    error_logger = logging.getLogger('error_logger')
-    error_logger.error("Process failed! Error raised: {}".format(traceback.format_exc()))
-    logger = logging.getLogger('debug')
-    logger.error("Process failed! Error raised: {}".format(err))
+  #except Exception as err:
+  #  setup_logger('error_logger', os.path.join(EXPORT_FOLDER,'error_traceback.log'))
+   # error_logger = logging.getLogger('error_logger')
+   # error_logger.error("Process failed! Error raised: {}".format(traceback.format_exc()))
+   # logger = logging.getLogger('debug')
+   # logger.error("Process failed! Error raised: {}".format(err))
     
