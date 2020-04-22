@@ -9,13 +9,17 @@ START_YEAR = 2016
 END_YEAR = 2018
 PROBABILITY = 10
 
-EXPORT_FOLDER = "/zhome/academic/HLRS/eur/xeupmara/sc3_agroclimatic/frostdates/cloudify_integration/export" 
-DATA_FOLDER = "/zhome/academic/HLRS/eur/xeupmara/sc3_agroclimatic/frostdates/cloudify_integration/data" 
+path=os.path.abspath(__file__ + "/../../")
 
-START_LON = 12.555 
-START_LAT = 49.67 
+EXPORT_FOLDER =path+ "/export"
+DATA_FOLDER = path + "/data"
+
+START_LON = 12.555
+START_LAT = 49.67
 END_LON = 12.61
-END_LAT = 49.801 
+END_LAT = 50.00
+#END_LAT = 49.801
+
 
 #INPUT_LOGLEVEL = DEBUG
 
