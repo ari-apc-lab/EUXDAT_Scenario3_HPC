@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -N test
+#PBS -N test_4process_4pair
 #PBS -l select=1:node_type=rome:mpiprocs=4
 #PBS -l walltime=00:05:00             
   
@@ -9,4 +9,4 @@ cd $PBS_O_WORKDIR
 
 # Launch the parallel mpi application (compiled with intel mpi) to the allocated compute nodes
 module load python/3
-mpirun -np 4  ./python_code/frostdates > my_output_file 2>&1
+mpirun -np 4 ./python_code/frostdates > my_output_file 2>&1
