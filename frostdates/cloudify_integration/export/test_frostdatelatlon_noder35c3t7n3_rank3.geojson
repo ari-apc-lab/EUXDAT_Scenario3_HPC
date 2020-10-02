@@ -1,0 +1,32 @@
+{
+"type": "FeatureCollection",
+"features": [
+{
+"type": "Feature",
+"geometry": {
+"type": "Point",
+"coordinates": [12.100000381469727,48.599998474121094]
+},
+"properties": {
+"LastD2016": "2016-04-29",
+"FirstD2016": "2016-11-04",
+"Period2016": "189",
+"FrDays2016": "83",
+"LastD2017": "2017-04-24",
+"FirstD2017": "2017-11-14",
+"Period2017": "204",
+"FrDays2017": "90",
+"LastD2018": "2018-03-30",
+"FirstD2018": "2018-11-18",
+"Period2018": "233",
+"FrDays2018": "83",
+"LastD2019": "2019-03-21",
+"FirstD2019": "2019-11-10",
+"Period2019": "234",
+"FrDays2019": "70",
+"LastD10": "2030-05-01",
+"FirstD10": "2030-11-04",
+"Period10": "187",
+"AvgFrDays": "82"
+}
+},
