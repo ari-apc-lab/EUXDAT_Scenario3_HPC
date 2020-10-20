@@ -7,7 +7,7 @@ for file in glob.glob("*.geojson"):
 
 filenames.sort()
 
-with open(path+"/export/"+'output_concatenated_files.txt', 'w') as outfile:
+with open(path+"/export/"+'output_concatenated_files.geojson', 'w') as outfile:
     for fname in filenames:
         with open(fname) as infile:
             for line in infile:
