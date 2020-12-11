@@ -1,13 +1,18 @@
 #!/bin/bash
 #PBS -N test_4process_4pair
 #PBS -l select=1:node_type=rome:mpiprocs=4
-#PBS -l walltime=00:05:00             
-  
+#PBS -l walltime=00:10:00
+#PBS -q euxdat
+
+
 # Change to the direcotry that the job was submitted from
 cd $PBS_O_WORKDIR
 
 
 # Launch the parallel mpi application (compiled with intel mpi) to the allocated compute nodes
 module load python/3
-mpirun -np 4 ./python_code/frostdates > my_output_file 2>&1
+rm -Rf export/
+mkdir export
+time mpirun -np 4 ./python_code/frostdates > my_output_file 2>&1
+find export/ -type f | xargs -i bash -c 'if [ $(wc -l {}|cut -d" " -f1) -lt 30 ]; then rm -f {}; fi'
 python joining_files.py
