@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -N test_4process_4pair
 #PBS -l select=1:node_type=rome:mpiprocs=4
-#PBS -l walltime=00:10:00
+#PBS -l walltime=00:30:00
 #PBS -q euxdat
 
 
@@ -14,5 +14,5 @@ module load python/3
 rm -Rf export/
 mkdir export
 time mpirun -np 4 ./python_code/frostdates > my_output_file 2>&1
-find export/ -type f | xargs -i bash -c 'if [ $(wc -l {}|cut -d" " -f1) -lt 30 ]; then rm -f {}; fi'
+sh delete_small_files.sh
 python joining_files.py

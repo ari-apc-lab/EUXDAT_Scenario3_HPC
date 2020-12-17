@@ -1,0 +1,475 @@
+#!/usr/bin/env python
+
+import time
+start_time = time.time()
+
+
+import netCDF4 # python API to work with netcdf (.nc) files
+import os
+#import logging
+import datetime
+#from osgeo import gdal, ogr, osr
+import numpy as np # library to work with matrixes and computations in general
+
+import geopandas
+import pyproj
+
+
+from auxiliary_classes import convert_time,convert_time_reverse,kelvin_to_celsius,kelvin_to_celsius_vector,Grid,Image,subImage
+import json
+import geojson, subprocess
+
+from frostdates_params import DAY_IN_ROW, START_HOUR_DAY, END_HOUR_DAY, FROST_DEGREE, START_YEAR, END_YEAR, PROBABILITY, EXPORT_FOLDER, DATA_FOLDER, START_LON, START_LAT, END_LON, END_LAT,  process_id #setup_logger,
+
+from mpi4py import MPI
+import itertools
+comm = MPI.COMM_WORLD
+size = comm.Get_size()
+node= MPI.Get_processor_name()
+#logger.info("%s ranks available in the communicator",size)
+
+#==============================ADDED FROM CLOUD
+
+def convert_geojson(fname, src_epsg_string, dst_epsg_string):
+    #fname = fname + ".geojson"
+    gdf = geopandas.read_file(fname)
+    gdf.crs = src_epsg_string
+    gdf = gdf.to_crs(dst_epsg_string)
+    gdf.to_file(fname, driver="GeoJSON")
+
+#================================
+# Auxiliary Functions
+def print_geojson(tname, tvalue, fname, startdoc, position,endloop): #for printing to geojson - start,end,attributes
+    fname = fname +"_node"+ str(node) +"_rank" +str(comm.rank)+ ".geojson"
+   # print("ciao from geojson function")
+   # print(fname)
+   # print(comm.rank)
+   # print(size)
+#    logger.info("%s fname", fname) #This was already commented out
+    #fname = fname +".geojson"
+    pmode="a"
+    if startdoc==1:
+        with open(fname, mode="w", encoding='utf-8') as f1:
+            tstring = "{\n\"type\": \"FeatureCollection\",\n\"features\": ["
+            print(tstring, file=f1)
+            f1.close()
+    else:
+        if position==1:
+            with open(fname, mode=pmode, encoding='utf-8') as f1:
+                print("{", file=f1)
+                f1.close()
+        elif position==2:
+            with open(fname, mode=pmode, encoding='utf-8') as f1:
+                if endloop==0:
+                    print("}\n},", file=f1)
+                    f1.close()
+                else:
+                    print("}\n}\n]\n}", file=f1)
+                    f1.close()
+        elif position==3:
+            with open(fname, mode=pmode, encoding='utf-8') as f1:
+                ttext = "\"" + str(tname) + "\": \"" +str(tvalue) + "\""
+                print(ttext, file=f1)
+                f1.close()
+        else:
+             with open(fname, mode=pmode, encoding='utf-8') as f1:
+                ttext = "\"" + str(tname) + "\": \"" +str(tvalue) + "\","
+                print(ttext, file=f1)
+                f1.close()
+
+def print_geojson_2(longitude, latitude, fname): #for printing to geojson - geometry, longitude, latitude
+    tstring = "\"type\": \"Feature\",\n\"geometry\": {\n\"type\": \"Point\",\n\"coordinates\": [" + str(longitude) + ","+ str(latitude) + "]\n},\n\"properties\": {"
+    fname = fname +  "_node"+ str(node) +"_rank" +str(comm.rank)+".geojson"
+    #fname = fname +".geojson"
+    #print("ciao from geojson 2 function")
+    with open(fname, mode="a", encoding='utf-8') as f1:
+            print(tstring, file=f1)
+            f1.close()
+
+def probabilitydate(inputlist, probability, first):#calculate frost date with selected probability from list of frost dates of each year
+    listlong = len(inputlist)
+    if listlong == 1:
+        outputdate = 0
+        return outputdate
+    elif listlong == 0:
+        outputdate = 0
+        return outputdate
+    else:
+        orderlist = orderedlist(inputlist)
+        valuelist = daynumberlist(orderlist)
+        value = 0
+        if first==1:
+            value = int(gauss_value(valuelist, probability))
+        else:
+            probability=100-probability
+            value = int(gauss_value(valuelist, probability))
+        outputdate = orderlist[0] + timedelta(days=value)
+        return outputdate
+
+def same_year(daylong): #change date to same year (2030) for next calculation
+        sdaylong = str(daylong)
+        tday = int(sdaylong[8:10])
+        tmonth = int(sdaylong[5:7])
+        sameyear = date(2030, tmonth, tday)
+        return sameyear
+
+def gauss_value(inputlist, probability): #value of gaussian probability from values of input list
+    mean = np.mean(inputlist)
+    sigma = np.std(inputlist)
+    values = np.random.normal(mean,sigma,10000)
+    value = np.percentile(values,probability)
+    return value
+
+def orderedlist(inputlist): #sort list by date
+    listlong = len(inputlist)
+    for j in range (0,listlong-1,1):
+        for i in range(j+1, listlong, 1):
+            firstday = inputlist[j]
+            secondday = inputlist[i]
+            sfirstday = str(firstday)
+            ssecondday = str(secondday)
+            fday = int(sfirstday[8:10])
+            fmonth = int(sfirstday[5:7])
+            sday = int(ssecondday[8:10])
+            smonth = int(ssecondday[5:7])
+            if fday<10:
+                firstval=str(fmonth)+"0"+str(fday)
+            else:
+                firstval=str(fmonth)+str(fday)
+            if sday<10:
+                secondval=str(smonth)+"0"+str(sday)
+            else:
+                secondval=str(smonth)+str(sday)
+            firstvalue = int(firstval)
+            secondvalue = int(secondval)
+            if secondvalue < firstvalue:
+                inputlist[j]=secondday
+                inputlist[i]=firstday
+    return inputlist
+
+def daynumberlist(orderlist): #from ordered dates to number of days from first date
+    listlong = len(orderlist)
+    outputlist=[]
+    outputlist.append(0)
+    for i in range(1, listlong, 1):
+        difference = orderlist[i] - orderlist[0]
+        outputlist.append(difference.days)
+    return outputlist
+
+#  Find frost dates: function for one place
+from datetime import date, timedelta
+def findfrostdates(latitude,longitude,year,frostdegree,dayinrow,starthourday,endhourday,fnamefrostdates,im,firstlist, lastlist,nmbfrdayslist):
+    numbfrostdays=0 # for calculating numb of frost days
+
+    #determination of winter and summer:
+    wintermonth=1
+    summermonth=7
+    if latitude<0:
+        wintermonth=7
+        summermonth=1
+
+    # Last spring frost date:
+    startmonth=wintermonth
+    endmonth=summermonth
+    lastfrostday=0
+    daysbefore=0
+    startdate=1
+    enddate=1
+    if endmonth == 1:
+        endmonth=12
+        enddate=31
+    sdate = date(year, startmonth, startdate)   # start date for searching last frost date
+    edate = date(year, endmonth, enddate)   # end date for searching last frost date
+    delta = edate - sdate       # as timedelta
+    for i in range(delta.days):
+        daylong = sdate + timedelta(days=i)
+        sdaylong = str(daylong)
+        tday = int(sdaylong[8:10])
+        tmonth = int(sdaylong[5:7])
+        tyear = int(sdaylong[0:4])
+        daymin = 50 # start value
+        for hour in range(starthourday, endhourday+1, 1): # for specific hours (all day,only sunrise hours,..)
+            time=convert_time_reverse(datetime.datetime(tyear, tmonth, tday, hour, 0))
+            slice_dictionary={'lon':[longitude,],'lat':[latitude],'time':[int(time)]}
+            currenttemp=kelvin_to_celsius_vector(im.slice('tas',slice_dictionary))
+            if currenttemp < daymin:
+                daymin = currenttemp
+        if daymin <= frostdegree:  # frostday?
+            numbfrostdays+=1
+            lastfrostday=daylong
+            if daysbefore>=dayinrow-1:
+                lastfrostday=daylong
+            daysbefore=+1
+        else:
+            daysbefore=0
+
+    tvarname = "LastD"+ str(year)
+    print_geojson(tvarname, lastfrostday, fnamefrostdates, 0, 0, 0)
+    if lastfrostday!= 0:
+        tvalue = same_year(lastfrostday)
+        lastlist.append(tvalue)
+
+    # First autumn frost date:
+    startmonth=summermonth
+    endmonth=wintermonth
+    firstfrostday=0
+    daysbefore=0
+    cutfrost=0
+    enddate=1
+    startdate=1
+    if endmonth == 1:
+        endmonth=12
+        enddate=31
+
+    sdate = date(year, startmonth, startdate)   # start date of searching
+    edate = date(year, endmonth, enddate)   # end date of searching
+    delta = edate - sdate       # as timedelta
+    for i in range(delta.days):
+        daylong = sdate + timedelta(days=i)
+        sdaylong = str(daylong)
+        tday = int(sdaylong[8:10])
+        tmonth = int(sdaylong[5:7])
+        tyear = int(sdaylong[0:4])
+        daymin = 50 # start value
+        for hour in range(starthourday, endhourday+1, 1): # for specific hours (all day,only sunrise hours,..)
+            time=convert_time_reverse(datetime.datetime(tyear, tmonth, tday, hour, 0))
+            slice_dictionary={'lon':[longitude],'lat':[latitude],'time':[int(time)]}
+            currenttemp=kelvin_to_celsius_vector(im.slice('tas',slice_dictionary))
+            if currenttemp < daymin:
+                daymin = currenttemp
+        if daymin <= frostdegree:  # frostday?
+            numbfrostdays+=1
+            if daysbefore>=(dayinrow-1) and cutfrost==0:
+                firstfrostday=daylong
+                cutfrost=1
+            daysbefore=+1
+        else:
+            daysbefore=0
+
+    tvarname = "FirstD"+str(year)
+    print_geojson(tvarname, firstfrostday, fnamefrostdates, 0, 0, 0)
+    if firstfrostday!= 0:
+        tvalue = same_year(firstfrostday)
+        firstlist.append(tvalue)
+    # Frostfreeperiod
+    frostfreeperiod=0
+    if firstfrostday!=0 and lastfrostday!=0:
+        if latitude>0:
+            frostfreeperiod =  firstfrostday-lastfrostday
+            frostfreeperiod = frostfreeperiod.days
+        else:
+            firstyeardate = date(year, 1, 1)   # start date of year
+            lastyeardate = date(year, 12, 31)   # end date of year
+            frostfreeperiod =  (firstfrostday-firstyeardate)+(lastyeardate-lastfrostday)
+    tvarname = "Period"+ str(year)
+    print_geojson(tvarname, frostfreeperiod, fnamefrostdates, 0, 0, 0)
+
+    tvarname = "FrDays"+ str(year)
+    print_geojson(tvarname, numbfrostdays, fnamefrostdates, 0, 0, 0)
+    nmbfrdayslist.append(numbfrostdays)
+
+# Find frost dates: function for selected years
+def frostdatesyearly(latorder,lonorder,startyear,endyear,frostdegree,dayinrow,starthourday,endhourday,fnamefrostdates,endloop,datafolder,probability):
+    print_geojson("", "", fnamefrostdates, 0, 1,0)
+    firstlist = []
+    lastlist = []
+    nmbfrdayslist = []
+
+    for year in range(startyear, endyear+1, 1):
+        source = datafolder + '/' + str(year) + '.nc'
+        im=Image(netCDF4.Dataset(source,'r'))
+        longlist = im.get_data().variables['lon'][:]
+        latlist= im.get_data().variables['lat'][:]
+        longitude = longlist [lonorder]
+        latitude = latlist[latorder]
+        if year == startyear:
+            print_geojson_2(longitude, latitude, fnamefrostdates)
+        findfrostdates(latitude,longitude,year,frostdegree,dayinrow,starthourday,endhourday,fnamefrostdates,im,firstlist,lastlist,nmbfrdayslist)
+
+    firstprobday = probabilitydate(firstlist, probability, 1)
+    lastprobday = probabilitydate(lastlist, probability, 0)
+    namefirstprob = "FirstD" + str(probability)
+    namelastprob = "LastD" + str(probability)
+    print_geojson(namelastprob, lastprobday, fnamefrostdates, 0, 0, 0)
+    print_geojson(namefirstprob, firstprobday, fnamefrostdates, 0, 0, 0)
+
+    nameperiodprob = "Period" + str(probability)
+    frostfreeperiod=0
+    if firstprobday!=0 and lastprobday!=0:
+        if latitude>0:
+            frostfreeperiod =  firstprobday-lastprobday
+            frostfreeperiod = frostfreeperiod.days
+        else:
+            firstyeardate = date(2030, 1, 1)   # start date of year
+            lastyeardate = date(2030, 12, 31)   # end date of year
+            frostfreeperiod =  (firstprobday-firstyeardate)+(lastyeardate-lastprobday)
+
+    print_geojson(nameperiodprob, frostfreeperiod, fnamefrostdates, 0, 0, 0)
+    tmeannmb = np.mean(nmbfrdayslist)
+    meannmb = int(np.round(tmeannmb, decimals=0, out=None))
+    print_geojson("AvgFrDays", meannmb, fnamefrostdates, 0, 3, 0)
+    print_geojson("", "", fnamefrostdates, 0, 2,endloop)
+
+
+# Find frost dates: function for selected latitudes, longitudes
+def frostdatesplaces(startlat, startlon, endlat, endlon, startyear,endyear,frostdegree,dayinrow,starthourday,endhourday,exportfolder,datafolder,fnamefrostdates1,probability):
+        #setup_logger('debug', os.path.join(EXPORT_FOLDER,'debug.log'))
+        #logger = logging.getLogger('debug')
+        #logger.info("Starting frostdates algorithm...")
+
+        fnamefrostdates = exportfolder + "/" +fnamefrostdates1
+        print_geojson("", "", fnamefrostdates, 1, 0,0)
+        endloop=0
+        for latorder in range(startlat, endlat+1, 1):
+            for lonorder in range(startlon, endlon+1, 1):
+                if latorder==endlat and lonorder==endlon:
+                    endloop=1
+                #logger.debug("Computing frostdates for lat_order: %s and lon_order: %s", latorder, lonorder)
+                frostdatesyearly(latorder,lonorder,startyear,endyear,frostdegree,dayinrow,starthourday,endhourday,fnamefrostdates,endloop,datafolder,probability)
+        #logger.info("Scenario succeeded!")
+
+
+
+def getlatlist(startyear,datafolder):
+    source = datafolder + '/' + str(startyear) + '.nc'
+    im=Image(netCDF4.Dataset(source,'r'))
+    return im.get_data().variables['lat'][:]
+
+def getlonlist(startyear,datafolder):
+    source = datafolder + '/' + str(startyear) + '.nc'
+    im=Image(netCDF4.Dataset(source,'r'))
+    return im.get_data().variables['lon'][:]
+
+def getincludedindices(start_value,end_value,array):
+    subarray = []
+    for index in range(0,len(array)-1):
+        value = array[index]
+        if (value >= start_value) and (value <= end_value):
+            subarray.append(index)
+    return subarray
+
+
+# Parallel version of Find frost dates lat lon function. Work for differemt latitude and longitude pair is spread over different processors with MPI.
+def frostdatesplaceslatlonparallel(startlat, startlon, endlat, endlon, startyear,endyear,frostdegree,dayinrow,starthourday,endhourday,exportfolder,datafolder,fnamefrostdates1,probability):
+    #setup_logger('debug', os.path.join(EXPORT_FOLDER,'debug.log'))
+    #logger = logging.getLogger('debug')
+    #logger.info("Starting frostdates algorithm...")
+
+
+    #==================================================ADDED FROM CLOUD VERSION
+
+  #  inProj = pyproj.Proj(init='epsg:3857')  # the desired crs (in this case Lambert, French crs)
+  #  outProj = pyproj.Proj(init='epsg:4326')  # the coordinates of the center of paris in Long/Lat
+
+   # bbox_lat = (startlat, startlat, endlat, endlat)   # project the coordinates in the new system.
+   # bbox_lon = (startlon, endlon, startlon, endlon)
+
+  #  bbox_lon, bbox_lat = pyproj.transform(inProj, outProj, bbox_lon,bbox_lat)
+
+   # startlat = min(bbox_lat)
+   # endlat = max(bbox_lat)
+   # startlon = min(bbox_lon)
+   # endlon = max(bbox_lon)
+
+    #======================================================
+
+    latlist = getlatlist(startyear,datafolder)
+    lonlist = getlonlist(startyear,datafolder)
+
+    latorders = getincludedindices(startlat, endlat, latlist)
+    lonorders = getincludedindices(startlon, endlon, lonlist)
+
+    fnamefrostdates = exportfolder + "/" +fnamefrostdates1
+    print(fnamefrostdates)
+    print_geojson("", "", fnamefrostdates, 1, 0,0)
+    endloop=0
+
+
+    masterlist=[]
+    for lat,long in itertools.product(latorders, lonorders):
+        item =[]
+        item.append(lat)
+        item.append(long)
+        masterlist.append(item)
+
+
+    N = len(latorders) * len(lonorders)
+    count = int(N / comm.size)
+    remainder = N%comm.size
+
+    if comm.rank < remainder:
+        start_pair = int(comm.rank * (count + 1))
+        stop_pair = int(start_pair + count)
+
+    else:
+        start_pair = int(comm.rank * count + remainder)
+        stop_pair = int(start_pair + (count - 1))
+
+
+    for i in range(start_pair,stop_pair+1,1):
+        if i == (stop_pair+1):
+            endloop=1
+       # logger.info("Rank %d is computing frostdates for lat_order: %s and lon_order: %s",comm.rank, masterlist[i][0], masterlist[i][1])
+       #logger.info("rank %d working on pair %d with lonorder %d and latorder %d" % (comm.rank, i, masterlist[i][0], masterlist[i][1]))
+        frostdatesyearly(masterlist[i][0],masterlist[i][1],startyear,endyear,frostdegree,dayinrow,starthourday,endhourday,fnamefrostdates,endloop,datafolder,probability)
+
+    #===============================ADDED FROM CLOUD
+    if comm.rank ==0:
+        convert_geojson(fnamefrostdates, 'epsg:4326', 'epsg:3857')
+
+    #====================================
+    #logger.info("Scenario succeeded!")
+
+if __name__ == "__main__":
+  START_LAT = float(START_LAT)
+  START_LON = float(START_LON)
+  END_LAT = float(END_LAT)
+  END_LON = float(END_LON)
+  START_YEAR = int(START_YEAR)
+  END_YEAR = int(END_YEAR)
+  FROST_DEGREE = int(FROST_DEGREE)
+  DAY_IN_ROW = int(DAY_IN_ROW)
+  START_HOUR_DAY = int(START_HOUR_DAY)
+  END_HOUR_DAY = int(END_HOUR_DAY)
+  PROBABILITY = int(PROBABILITY)
+  #try:
+  
+
+  inProj = pyproj.Proj(init='epsg:3857')  # the desired crs (in this case Lambert, French crs)
+  outProj = pyproj.Proj(init='epsg:4326')  # the coordinates of the center of paris in Long/Lat
+
+  bbox_lat = (START_LAT ,START_LAT, END_LAT, END_LAT)   # project the coordinates in the new system.
+  bbox_lon = (START_LON, END_LON, START_LON, END_LON)
+
+  bbox_lon, bbox_lat = pyproj.transform(inProj, outProj, bbox_lon,bbox_lat)
+
+  startlat = min(bbox_lat)
+  endlat = max(bbox_lat)
+  startlon = min(bbox_lon)
+  endlon = max(bbox_lon)
+
+
+  frostdatesplaceslatlonparallel(startlat, startlon,endlat, endlon, START_YEAR ,END_YEAR ,FROST_DEGREE ,DAY_IN_ROW ,START_HOUR_DAY ,END_HOUR_DAY ,EXPORT_FOLDER ,DATA_FOLDER ,process_id ,PROBABILITY)
+
+  '''
+  comm.barrier()
+
+  if comm.rank == 0:
+      path=os.path.abspath(__file__ + "/../../")
+      print(path)
+      os.chdir(path)
+      os.system('sh delete_small_files.sh')
+      os.system('joining_files.py')
+      convert_geojson('output_concatenated_files.geojson', 'epsg:4326', 'epsg:3857')
+  '''
+
+    #frostdatesplaceslatlon(START_LAT, START_LON, END_LAT, END_LON, START_YEAR ,END_YEAR ,FROST_DEGREE ,DAY_IN_ROW ,START_HOUR_DAY ,END_HOUR_DAY ,EXPORT_FOLDER ,DATA_FOLDER ,process_id ,PROBABILITY)
+  #except Exception as err:
+  #  setup_logger('error_logger', os.path.join(EXPORT_FOLDER,'error_traceback.log'))
+   # error_logger = logging.getLogger('error_logger')
+   # error_logger.error("Process failed! Error raised: {}".format(traceback.format_exc()))
+   # logger = logging.getLogger('debug')
+   # logger.error("Process failed! Error raised: {}".format(err))
+
+print("--- %s seconds ---" % (time.time() - start_time))
+
